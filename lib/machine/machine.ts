@@ -17,10 +17,28 @@
 import {
     SoftwareDeliveryMachine,
     SoftwareDeliveryMachineConfiguration,
+    CodeTransform,
+    CodeInspection,
+    AutoCodeInspection,
+    goalContributors,
+    onAnyPush,
+    goals,
+    Autofix,
 } from "@atomist/sdm";
 import {
     createSoftwareDeliveryMachine,
 } from "@atomist/sdm-core";
+import {
+    Project,
+    DefaultHttpClientFactory,
+    NoParameters,
+    projectUtils
+} from "@atomist/automation-client";
+import { InspectPipelineYmlCommand,
+    AutoInspectPipelineYmlCommand,
+    AutoInspectFailIfPipelineComments } from "./inspections";
+import { AddPipelineYmlCommand, AddPipelineYmlAutofix } from "./transforms";
+
 
 /**
  * Initialize an sdm definition, and add functionality to it.
@@ -36,11 +54,28 @@ export function machine(
         configuration,
     });
 
-    /*
-     * this is a good place to type
-    sdm.
-     * and see what the IDE suggests for after the dot
-     */
+    //Manual inspection
+    sdm.addCodeInspectionCommand(InspectPipelineYmlCommand);
+
+    //Auto Inspection
+    const codeInspection = new AutoCodeInspection();
+    codeInspection.with(AutoInspectPipelineYmlCommand)
+        .withListener(AutoInspectFailIfPipelineComments);
+
+    //Manual transform
+    sdm.addCodeTransformCommand(AddPipelineYmlCommand)
+
+    // Auto Transform
+    const autofixGoal = new Autofix().with(AddPipelineYmlAutofix)
+
+    const baseGoals = goals("Base Goals").plan(codeInspection, autofixGoal);
+
+    sdm.withPushRules(
+        onAnyPush().setGoals(baseGoals)
+    )
 
     return sdm;
 }
+
+//Update 2018 -> 2019
+
